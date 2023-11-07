@@ -8,3 +8,5 @@ EXTRAKEY_ENABLE = yes
 NKRO_ENABLE = yes
 
 SERIAL_DRIVER = vendor
+
+CONVERT_TO = liatris
