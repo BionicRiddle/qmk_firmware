@@ -48,16 +48,8 @@ static char debug_str[OLED_DISPLAY_WIDTH] = "";
 // 120 sec
 #define SLEEP_TIMEOUT 120000
 
-static uint8_t next_bar_val = 0;
-static uint8_t next_log_byte[OLED_FONT_WIDTH] = {0};
-static uint8_t line1[OLED_DISPLAY_WIDTH] = {0};
-static uint8_t line2[OLED_DISPLAY_WIDTH] = {0};
+//#define RENDER_STATUS // Render status bar on OLED, if not defined, space will render
 
-static const uint8_t PROGMEM bar_lut[8] = {0, 16, 24, 56, 60, 124, 126, 255};
-
-#define BAR_KEY_WEIGHT 128
-#define BAR_KEY_DECAY_MAX 18
-static uint8_t bar_key_decay = BAR_KEY_DECAY_MAX;
 
 static const char PROGMEM code_to_name[0xFF] = {
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
@@ -92,7 +84,19 @@ static uint32_t last_sync = 0;
 static bool need_sync = true;
 static uint32_t oled_sleep_timer = 0;
 unsigned int state = 0;
+
+#ifdef RENDER_STATUS
 static uint16_t anim_timer = 0;
+static uint8_t next_bar_val = 0;
+static uint8_t next_log_byte[OLED_FONT_WIDTH] = {0};
+static uint8_t line1[OLED_DISPLAY_WIDTH] = {0};
+static uint8_t line2[OLED_DISPLAY_WIDTH] = {0};
+static const uint8_t PROGMEM bar_lut[8] = {0, 16, 24, 56, 60, 124, 126, 255};
+#define BAR_KEY_WEIGHT 128
+#define BAR_KEY_DECAY_MAX 18
+static uint8_t bar_key_decay = BAR_KEY_DECAY_MAX;
+#endif
+
 extern MidiDevice midi_device;
 extern const unsigned char font[] PROGMEM;
 
@@ -323,6 +327,7 @@ static const char PROGMEM mask_row_4[] = {
 
 bool process_record_user_oled(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
+#ifdef RENDER_STATUS
         if(keylog_enabled) {
             add_keylog(keycode);
 
@@ -335,6 +340,7 @@ bool process_record_user_oled(uint16_t keycode, keyrecord_t *record) {
 
             bar_key_decay = BAR_KEY_DECAY_MAX;
         }
+#endif
     }
     return true;
 }
@@ -420,7 +426,7 @@ static void render_space(void) {
         render_row[i] = pgm_read_byte(space_row_1+i+state);
     };
     for(i=wpm/4; i<128; i++) {
-        render_row[i] = pgm_read_byte(space_row_1+i+state);
+        render_row[i] = (pgm_read_byte(space_row_1+i+state)&pgm_read_byte(mask_row_1+i-wpm/4)) | pgm_read_byte(ship_row_1+i-wpm/4);
     };
 
     oled_write_raw(render_row, 128);
@@ -430,7 +436,7 @@ static void render_space(void) {
         render_row[i] = pgm_read_byte(space_row_2+i+state);
     };
     for(i=wpm/4; i<128; i++) {
-        render_row[i] = pgm_read_byte(space_row_2+i+state);
+        render_row[i] = (pgm_read_byte(space_row_2+i+state)&pgm_read_byte(mask_row_2+i-wpm/4)) | pgm_read_byte(ship_row_2+i-wpm/4);
     };
     oled_write_raw(render_row, 128);
     oled_set_cursor(0,2);
@@ -438,7 +444,7 @@ static void render_space(void) {
         render_row[i] = pgm_read_byte(space_row_3+i+state);
     };
     for(i=wpm/4; i<128; i++) {
-        render_row[i] = pgm_read_byte(space_row_3+i+state);
+        render_row[i] = (pgm_read_byte(space_row_3+i+state)&pgm_read_byte(mask_row_3+i-wpm/4)) | pgm_read_byte(ship_row_3+i-wpm/4);
     };
 
     oled_write_raw(render_row, 128);
@@ -447,13 +453,15 @@ static void render_space(void) {
         render_row[i] = pgm_read_byte(space_row_4+i+state);
     };
     for(i=wpm/4; i<128; i++) {
-        render_row[i] = pgm_read_byte(space_row_4+i+state);
+        render_row[i] = (pgm_read_byte(space_row_4+i+state)&pgm_read_byte(mask_row_4+i-wpm/4)) | pgm_read_byte(ship_row_4+i-wpm/4);
     };
 
     oled_write_raw(render_row, 128);
 
     state = (state + 1 + (wpm/15)) % (128*2);
 }
+
+#ifdef RENDER_STATUS
 uint8_t render_layer_state(void) {
     uint8_t len = 0;
     oled_write_P(PSTR("LAYER: "), false);
@@ -477,6 +485,7 @@ uint8_t render_layer_state(void) {
     }
     return len;
 }
+#endif
 
 void render_mod_status(uint8_t modifiers) {
     //oled_write_P(PSTR("Mods: "), false);
@@ -487,6 +496,7 @@ void render_mod_status(uint8_t modifiers) {
     //oled_write_char('\n', false);
 }
 
+#ifdef RENDER_STATUS
 void render_frame(void) {
     if (!is_keyboard_master()) {
         return;
@@ -535,6 +545,7 @@ void render_status(void) {
     }
     render_mod_status(get_mods() | get_oneshot_mods());
 }
+#endif
 
 bool oled_task_user(void) {
     if(is_keyboard_master()) {
@@ -564,6 +575,8 @@ bool oled_task_user(void) {
 #endif
 
     if (is_keyboard_master()) {
+
+#ifdef RENDER_STATUS
         render_status();
 
         // time for the next frame?
@@ -571,6 +584,10 @@ bool oled_task_user(void) {
             anim_timer = timer_read();
             render_frame();
         }
+#endif
+#ifndef RENDER_STATUS
+        render_space();
+#endif
     } else {
         render_space(); // Call this to render the space stuff on the one screen
     }
@@ -580,10 +597,12 @@ bool oled_task_user(void) {
 
 // Initialization and setup
 oled_rotation_t oled_init_user(oled_rotation_t rotation) {
+#ifdef RENDER_STATUS
     anim_timer = timer_read();
     if (!is_keyboard_left() && is_keyboard_master()) {
-        return OLED_ROTATION_180; 
+        return OLED_ROTATION_180;
     }
+#endif
     return rotation;
 }
 
@@ -618,6 +637,7 @@ void send_midi_press(uint8_t cc) {
     midi_send_cc(&midi_device, 0, cc, MIDI_CC_OFF);
 }
 
+#ifdef RENDER_STATUS
 void add_keylog(uint16_t keycode) {
     if ((keycode >= QK_MOD_TAP && keycode <= QK_MOD_TAP_MAX) ||
             (keycode >= QK_LAYER_TAP && keycode <= QK_LAYER_TAP_MAX) ||
@@ -635,6 +655,7 @@ void add_keylog(uint16_t keycode) {
         }
     }
 }
+#endif
 
 bool encoder_update_user(uint8_t index, bool clockwise) {
     switch (encoder_mode) {

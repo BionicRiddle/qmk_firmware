@@ -1,6 +1,6 @@
 ENCODER_ENABLE = yes
 OLED_ENABLE = yes
-OLED_DRIVER = SSD1306
+OLED_DRIVER = ssd1306
 # Bootloader selection
 BOOTLOADER = rp2040
 MIDI_ENABLE = yes
