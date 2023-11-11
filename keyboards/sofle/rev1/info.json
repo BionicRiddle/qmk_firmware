@@ -1,38 +1,31 @@
 {
     "keyboard_name": "Sofle",
-    "manufacturer": "JosefAdamcik",
+    "manufacturer": "Riddle",
     "url": "https://github.com/josefadamcik/SofleKeyboard",
     "maintainer": "Josef Adamcik <josef.adamcik@gmail.com>",
     "usb": {
-        "vid": "0xFC32",
-        "pid": "0x0287",
-        "device_version": "0.0.1"
+        "vid": "0xDEAD",
+        "pid": "0xBEEF",
+        "device_version": "14.8.8"
     },
     "matrix_pins": {
         "cols": ["F6", "F7", "B1", "B3", "B2", "B6"],
-        "rows": ["C6", "D7", "E6", "B4", "B5"]
+        "rows": ["C6", "D7", "E6", "B4", "B7"]
     },
     "diode_direction": "COL2ROW",
     "encoder": {
         "rotary": [
-            {"pin_a": "F5", "pin_b": "F4", "resolution": 2}
+            {"pin_a": "F5", "pin_b": "F4", "resolution": 4}
         ]
     },
     "split": {
-        "soft_serial_pin": "D2",
         "encoder": {
             "right": {
                 "rotary": [
-                    {"pin_a": "F4", "pin_b": "F5", "resolution": 2}
+                    {"pin_a": "F4", "pin_b": "F5", "resolution": 4}
                 ]
             }
         }
-    },
-    "tapping": {
-        "term": 100
-    },
-    "qmk": {
-        "tap_keycode_delay": 10
     },
     "processor": "atmega32u4",
     "bootloader": "caterina",

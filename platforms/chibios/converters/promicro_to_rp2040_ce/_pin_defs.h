@@ -17,11 +17,17 @@
 #define B4 8U
 #define B5 9U
 
+#define B7 12U
+
 // Right side (front)
 //      RAW
 //      GND
 //      RESET
 //      VCC
+#define F0 16U
+#define F1 17U
+
+
 #define F4 29U
 #define F5 28U
 #define F6 27U
