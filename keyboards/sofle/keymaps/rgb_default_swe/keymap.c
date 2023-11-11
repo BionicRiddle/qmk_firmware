@@ -690,7 +690,7 @@ bool encoder_update_user(uint8_t index, bool clockwise) {
             }
             break;
     }
-    
+    last_encoder_activity_trigger(); // FFJHS
     return false;
 }
 
