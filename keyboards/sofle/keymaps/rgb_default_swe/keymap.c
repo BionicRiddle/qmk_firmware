@@ -651,6 +651,7 @@ void add_keylog(uint16_t keycode) {
 #endif
 
 bool encoder_update_user(uint8_t index, bool clockwise) {
+    oled_sleep_timer = timer_read32(); // Reset the OLED sleep timer
     switch (encoder_mode) {
         case MIDI:
             if (index == 0) { /* Left encoder */
@@ -683,7 +684,6 @@ bool encoder_update_user(uint8_t index, bool clockwise) {
             }
             break;
     }
-    //last_encoder_activity_trigger(); // FFJHS
     return false;
 }
 
