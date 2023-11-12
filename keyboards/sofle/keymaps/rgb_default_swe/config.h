@@ -28,14 +28,23 @@
 
 //#define USE_MATRIX_I2C
 
-/* Select hand configuration */
 
-///https://thomasbaart.nl/2018/12/01/reducing-firmware-size-in-qmk/
+/* Select hand configuration */
 
 // #define MASTER_LEFT
 // #define MASTER_RIGHT
+
+// 60 fps
+#define FRAME_TIMEOUT (1000/60)
+// 120 sec
+#define SLEEP_TIMEOUT 120000
+
 #define	SPLIT_HAND_PIN_LOW_IS_LEFT
 #define SPLIT_HAND_PIN D4
+
+//#define SPLIT_USB_DETECT
+#define SPLIT_WATCHDOG_ENABLE
+
 
 #define CUSTOM_FONT
 
@@ -89,7 +98,7 @@
 
 #define OLED_FONT_H "keyboards/sofle/keymaps/rgb_default_swe/glcdfont.c"
 
-#define OLED_TIMEOUT 30000
+#define OLED_TIMEOUT 60000
 #define SPLIT_OLED_ENABLE
 
 #define SPLIT_WPM_ENABLE

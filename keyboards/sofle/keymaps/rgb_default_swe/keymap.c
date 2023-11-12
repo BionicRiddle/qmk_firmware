@@ -43,11 +43,6 @@ static char debug_str[OLED_DISPLAY_WIDTH] = "";
 #define ROW_1 OLED_DISPLAY_WIDTH
 #define ROW_2 (OLED_DISPLAY_WIDTH * 2)
 
-// 60 fps
-#define FRAME_TIMEOUT (1000/60)
-// 120 sec
-#define SLEEP_TIMEOUT 120000
-
 //#define RENDER_STATUS // Render status bar on OLED, if not defined, space will render
 
 
@@ -76,7 +71,6 @@ static bool fourzone = false;
 static bool encoder_mode = MIDI;
 static bool keylog_enabled = true;
 static bool local_oled_state = true;
-static bool local_rgb_state = true;
 static uint8_t local_rgb_brightness;
 
 static bool sleep_state = false;
@@ -102,7 +96,6 @@ extern const unsigned char font[] PROGMEM;
 
 typedef struct _master_to_slave_t {
     bool    oled_state;
-    bool    rgb_state;
     uint8_t rgb_brightness;
 } master_to_slave_t;
 
@@ -548,24 +541,24 @@ void render_status(void) {
 #endif
 
 bool oled_task_user(void) {
-    if(is_keyboard_master()) {
-        // sleep if it has been long enough since we last got a char
-        if (timer_elapsed32(oled_sleep_timer) > SLEEP_TIMEOUT || sleep_state) {
+
+    // sleep if it has been long enough since we last got a char, only master manages this
+    if (is_keyboard_master()) {
+        if (timer_elapsed32(oled_sleep_timer) > OLED_TIMEOUT) {
             local_oled_state = false;
-            oled_off();
-            return false;
         } else {
             local_oled_state = true;
-            oled_on();
-        }
-    } else {
-        if (local_oled_state) {
-            oled_on();
-        } else {
-            oled_off();
-            return false;
         }
     }
+    
+
+    if (local_oled_state) {
+        oled_on();
+    } else {
+        oled_off();
+        return false;
+    }
+    
 
     // ifdef OLED_DEBUG
 
@@ -690,18 +683,15 @@ bool encoder_update_user(uint8_t index, bool clockwise) {
             }
             break;
     }
-    last_encoder_activity_trigger(); // FFJHS
+    //last_encoder_activity_trigger(); // FFJHS
     return false;
 }
 
 // Sync handler for master-slave communication
 void user_sync_a_slave_handler(uint8_t in_buflen, const void* in_data, uint8_t out_buflen, void* out_data) {
     const master_to_slave_t *m2s = (const master_to_slave_t*)in_data;
-    //local_oled_state = m2s->oled_state;
-    return;
-    if (local_rgb_state != m2s->rgb_state) {
-        local_rgb_state = m2s->rgb_state;
-    }    
+    
+    local_oled_state = m2s->oled_state;
     
     if (local_rgb_brightness != m2s->rgb_brightness) {
         local_rgb_brightness = m2s->rgb_brightness;
@@ -721,7 +711,6 @@ void housekeeping_task_user(void) {
         if (need_sync) {
             master_to_slave_t m2s = {0};
             m2s.oled_state = local_oled_state;
-            m2s.rgb_state = local_rgb_state;
             m2s.rgb_brightness = local_rgb_brightness;
             if(transaction_rpc_send(USER_SYNC_A, sizeof(m2s), &m2s)) {
                 last_sync = timer_read32();
@@ -734,9 +723,7 @@ void housekeeping_task_user(void) {
 void suspend_wakeup_init_kb(void) {
     // code will run on keyboard wakeup
     need_sync = true;
-    sleep_state = false;
     local_oled_state = true;
-    local_rgb_state = true;
     oled_sleep_timer = timer_read32();
 }
 
@@ -746,11 +733,9 @@ void suspend_power_down_kb(void) {
         sleep_state = true;
         need_sync = true;
         local_oled_state = false;
-        local_rgb_state = false;
 
         master_to_slave_t m2s = {0};
         m2s.oled_state = false;
-        m2s.rgb_state = false;
         m2s.rgb_brightness = local_rgb_brightness;
         transaction_rpc_send(USER_SYNC_A, sizeof(m2s), &m2s);
 
