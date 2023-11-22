@@ -71,6 +71,7 @@ static bool fourzone = false;
 static bool encoder_mode = MIDI;
 static bool keylog_enabled = true;
 static bool local_oled_state = true;
+static bool local_ship_state = true;
 static uint8_t local_rgb_brightness;
 
 static bool sleep_state = false;
@@ -96,6 +97,7 @@ extern const unsigned char font[] PROGMEM;
 
 typedef struct _master_to_slave_t {
     bool    oled_state;
+    bool    ship_state;
     uint8_t rgb_brightness;
 } master_to_slave_t;
 
@@ -419,7 +421,7 @@ static void render_space(void) {
         render_row[i] = pgm_read_byte(space_row_1+i+state);
     };
     for(i=wpm/4; i<128; i++) {
-        render_row[i] = (pgm_read_byte(space_row_1+i+state)&pgm_read_byte(mask_row_1+i-wpm/4)) | pgm_read_byte(ship_row_1+i-wpm/4);
+        render_row[i] = (local_ship_state) ? ((pgm_read_byte(space_row_1+i+state)&pgm_read_byte(mask_row_1+i-wpm/4)) | pgm_read_byte(ship_row_1+i-wpm/4)) : pgm_read_byte(space_row_1+i+state);
     };
 
     oled_write_raw(render_row, 128);
@@ -429,7 +431,7 @@ static void render_space(void) {
         render_row[i] = pgm_read_byte(space_row_2+i+state);
     };
     for(i=wpm/4; i<128; i++) {
-        render_row[i] = (pgm_read_byte(space_row_2+i+state)&pgm_read_byte(mask_row_2+i-wpm/4)) | pgm_read_byte(ship_row_2+i-wpm/4);
+        render_row[i] = (local_ship_state) ? ((pgm_read_byte(space_row_2+i+state)&pgm_read_byte(mask_row_2+i-wpm/4)) | pgm_read_byte(ship_row_2+i-wpm/4)) : pgm_read_byte(space_row_2+i+state);
     };
     oled_write_raw(render_row, 128);
     oled_set_cursor(0,2);
@@ -437,7 +439,7 @@ static void render_space(void) {
         render_row[i] = pgm_read_byte(space_row_3+i+state);
     };
     for(i=wpm/4; i<128; i++) {
-        render_row[i] = (pgm_read_byte(space_row_3+i+state)&pgm_read_byte(mask_row_3+i-wpm/4)) | pgm_read_byte(ship_row_3+i-wpm/4);
+        render_row[i] = (local_ship_state) ? ((pgm_read_byte(space_row_3+i+state)&pgm_read_byte(mask_row_3+i-wpm/4)) | pgm_read_byte(ship_row_3+i-wpm/4)) : pgm_read_byte(space_row_3+i+state);
     };
 
     oled_write_raw(render_row, 128);
@@ -446,7 +448,7 @@ static void render_space(void) {
         render_row[i] = pgm_read_byte(space_row_4+i+state);
     };
     for(i=wpm/4; i<128; i++) {
-        render_row[i] = (pgm_read_byte(space_row_4+i+state)&pgm_read_byte(mask_row_4+i-wpm/4)) | pgm_read_byte(ship_row_4+i-wpm/4);
+        render_row[i] = (local_ship_state) ? ((pgm_read_byte(space_row_4+i+state)&pgm_read_byte(mask_row_4+i-wpm/4)) | pgm_read_byte(ship_row_4+i-wpm/4)) : pgm_read_byte(space_row_4+i+state);
     };
 
     oled_write_raw(render_row, 128);
@@ -542,15 +544,16 @@ void render_status(void) {
 
 bool oled_task_user(void) {
 
+#ifdef SHIP_TIMEOUT
     // sleep if it has been long enough since we last got a char, only master manages this
     if (is_keyboard_master()) {
-        if (timer_elapsed32(oled_sleep_timer) > OLED_TIMEOUT) {
-            local_oled_state = false;
+        if (timer_elapsed32(oled_sleep_timer) > SHIP_TIMEOUT) {
+            local_ship_state = false;
         } else {
-            local_oled_state = true;
+            local_ship_state = true;
         }
     }
-    
+#endif    
 
     if (local_oled_state) {
         oled_on();
@@ -597,14 +600,6 @@ oled_rotation_t oled_init_user(oled_rotation_t rotation) {
     }
 #endif
     return rotation;
-}
-
-void keyboard_pre_init_user(void) {
-    // Set our LED pin as output
-    setPinOutput(24);
-    // Turn the LED off
-    // (Due to technical reasons, high is off and low is on)
-    writePinHigh(24);
 }
 
 void keyboard_post_init_user(void) {
@@ -692,6 +687,7 @@ void user_sync_a_slave_handler(uint8_t in_buflen, const void* in_data, uint8_t o
     const master_to_slave_t *m2s = (const master_to_slave_t*)in_data;
     
     local_oled_state = m2s->oled_state;
+    local_ship_state = m2s->ship_state;
     
     if (local_rgb_brightness != m2s->rgb_brightness) {
         local_rgb_brightness = m2s->rgb_brightness;
@@ -703,14 +699,15 @@ void user_sync_a_slave_handler(uint8_t in_buflen, const void* in_data, uint8_t o
 // Main loop-related function
 void housekeeping_task_user(void) {    
     if (is_keyboard_master()) {
-        // Interact with slave every 100ms
-        if (timer_elapsed32(last_sync) > 100) {
+        // Interact with slave every SYNC_TIMER ms
+        if (timer_elapsed32(last_sync) > SYNC_TIMER) {
             need_sync = true;
         }
 
         if (need_sync) {
             master_to_slave_t m2s = {0};
             m2s.oled_state = local_oled_state;
+            m2s.ship_state = local_ship_state;
             m2s.rgb_brightness = local_rgb_brightness;
             if(transaction_rpc_send(USER_SYNC_A, sizeof(m2s), &m2s)) {
                 last_sync = timer_read32();
@@ -724,6 +721,7 @@ void suspend_wakeup_init_kb(void) {
     // code will run on keyboard wakeup
     need_sync = true;
     local_oled_state = true;
+    local_ship_state = true;
     oled_sleep_timer = timer_read32();
 }
 
@@ -735,6 +733,7 @@ void suspend_power_down_kb(void) {
         local_oled_state = false;
 
         master_to_slave_t m2s = {0};
+        m2s.ship_state = local_ship_state;
         m2s.oled_state = false;
         m2s.rgb_brightness = local_rgb_brightness;
         transaction_rpc_send(USER_SYNC_A, sizeof(m2s), &m2s);

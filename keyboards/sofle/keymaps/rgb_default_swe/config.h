@@ -45,7 +45,6 @@
 //#define SPLIT_USB_DETECT
 #define SPLIT_WATCHDOG_ENABLE
 
-
 #define CUSTOM_FONT
 
 #define CUSTOM_LAYER_READ //if you remove this it causes issues - needs better guarding
@@ -98,8 +97,11 @@
 
 #define OLED_FONT_H "keyboards/sofle/keymaps/rgb_default_swe/glcdfont.c"
 
-#define OLED_TIMEOUT 60000
+#define OLED_TIMEOUT 60000 // 60 sec of no screen update, should never happen
+#define SHIP_TIMEOUT 120000 // ms
 #define SPLIT_OLED_ENABLE
+
+#define SYNC_TIMER 100 // ms
 
 #define SPLIT_WPM_ENABLE
 
